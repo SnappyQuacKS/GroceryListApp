@@ -85,36 +85,32 @@ struct DisplayItem: Identifiable {
 enum ListTheme: String, Codable, CaseIterable {
     case natural, purple, green, teal, dark
 
-    private static var isDark: Bool {
-        UserDefaults.standard.bool(forKey: "isDarkMode")
-    }
-
-    var backgroundColor: Color {
+    // Light: vibrant, saturated — dark enough for white text
+    // Dark:  rich, deeply saturated — clearly distinct from light
+    func backgroundColor(_ scheme: ColorScheme) -> Color {
+        let dark = scheme == .dark
         switch self {
-        case .natural: return Self.isDark ? Color(red: 0.15, green: 0.13, blue: 0.11) : Color(red: 0.98, green: 0.96, blue: 0.88)
-        case .purple:  return Self.isDark ? Color(red: 0.14, green: 0.09, blue: 0.20) : Color(red: 0.88, green: 0.78, blue: 0.97)
-        case .green:   return Self.isDark ? Color(red: 0.07, green: 0.15, blue: 0.09) : Color(red: 0.78, green: 0.94, blue: 0.82)
-        case .teal:    return Self.isDark ? Color(red: 0.05, green: 0.14, blue: 0.15) : Color(red: 0.74, green: 0.92, blue: 0.92)
-        case .dark:    return Color(red: 0.20, green: 0.20, blue: 0.25)
+        case .natural: return dark ? Color(red: 0.10, green: 0.26, blue: 0.18) : Color(red: 0.20, green: 0.52, blue: 0.35)
+        case .purple:  return dark ? Color(red: 0.22, green: 0.10, blue: 0.35) : Color(red: 0.48, green: 0.25, blue: 0.70)
+        case .green:   return dark ? Color(red: 0.08, green: 0.28, blue: 0.14) : Color(red: 0.18, green: 0.58, blue: 0.30)
+        case .teal:    return dark ? Color(red: 0.05, green: 0.24, blue: 0.26) : Color(red: 0.12, green: 0.52, blue: 0.56)
+        case .dark:    return Color(red: 0.18, green: 0.18, blue: 0.22)
         }
     }
 
-    var lineColor: Color {
-        (self == .dark || Self.isDark)
-            ? Color.white.opacity(0.10)
-            : Color(red: 0.38, green: 0.52, blue: 0.78).opacity(0.55)
+    // White text works on all backgrounds above
+    func textColor(_ scheme: ColorScheme) -> Color { .white }
+
+    func lineColor(_ scheme: ColorScheme) -> Color {
+        Color.white.opacity(0.12)
     }
 
-    var textColor: Color {
-        (self == .dark || Self.isDark) ? .white : Color(red: 0.1, green: 0.1, blue: 0.15)
-    }
-
-    var accentColor: Color {
+    func accentColor(_ scheme: ColorScheme) -> Color {
         switch self {
-        case .natural: return Self.isDark ? Color(red: 0.25, green: 0.75, blue: 0.52) : Color(red: 0.15, green: 0.55, blue: 0.38)
-        case .purple:  return Self.isDark ? Color(red: 0.72, green: 0.45, blue: 0.95) : Color(red: 0.50, green: 0.18, blue: 0.78)
-        case .green:   return Self.isDark ? Color(red: 0.20, green: 0.72, blue: 0.35) : Color(red: 0.12, green: 0.52, blue: 0.22)
-        case .teal:    return Self.isDark ? Color(red: 0.15, green: 0.72, blue: 0.75) : Color(red: 0.08, green: 0.50, blue: 0.52)
+        case .natural: return Color(red: 0.62, green: 1.00, blue: 0.78)
+        case .purple:  return Color(red: 0.88, green: 0.70, blue: 1.00)
+        case .green:   return Color(red: 0.55, green: 1.00, blue: 0.70)
+        case .teal:    return Color(red: 0.50, green: 0.98, blue: 0.96)
         case .dark:    return Color(red: 0.38, green: 0.80, blue: 0.60)
         }
     }

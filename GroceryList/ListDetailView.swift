@@ -3,7 +3,7 @@ import SwiftUI
 struct ListDetailView: View {
     let listId: String
     @Environment(AppStore.self) private var store
-    @AppStorage("isDarkMode") private var isDarkMode = false
+    @Environment(\.colorScheme) private var colorScheme
     @State private var showingAddItem     = false
     @State private var showingThemePicker = false
     @State private var showingHiddenItems = false
@@ -30,8 +30,8 @@ struct ListDetailView: View {
     private func content(_ list: GroceryList) -> some View {
         let displayItems = store.compileDisplayItems(listId: listId)
         let hiddenItems  = store.hiddenItems(listId: listId)
-        let lineColor  = list.theme.lineColor
-        let paperColor = list.theme.backgroundColor
+        let lineColor  = list.theme.lineColor(colorScheme)
+        let paperColor = list.theme.backgroundColor(colorScheme)
 
         ScrollView {
             VStack(spacing: 0) {
@@ -61,16 +61,16 @@ struct ListDetailView: View {
                         Image(systemName: "plus.circle.fill").font(.body)
                         Text("+ add item").font(.custom("Kreon-Regular", size: 17))
                     }
-                    .foregroundColor(list.theme.accentColor)
+                    .foregroundColor(list.theme.accentColor(colorScheme))
                     .padding(.horizontal, 14)
                     .padding(.vertical, 5)
                     .background(
                         RoundedRectangle(cornerRadius: 8)
-                            .fill(list.theme.accentColor.opacity(0.12))
+                            .fill(list.theme.accentColor(colorScheme).opacity(0.12))
                     )
                     .overlay(
                         RoundedRectangle(cornerRadius: 8)
-                            .stroke(list.theme.accentColor.opacity(0.5), lineWidth: 1.5)
+                            .stroke(list.theme.accentColor(colorScheme).opacity(0.5), lineWidth: 1.5)
                     )
                 }
                 .frame(maxWidth: .infinity)
@@ -85,7 +85,7 @@ struct ListDetailView: View {
                     HStack {
                         Text("Hidden Items")
                             .font(.custom("Kreon-Bold", size: 13))
-                            .foregroundColor(list.theme.textColor.opacity(0.5))
+                            .foregroundColor(list.theme.textColor(colorScheme).opacity(0.5))
                             .padding(.leading, 16)
                         Spacer()
                     }
@@ -98,8 +98,8 @@ struct ListDetailView: View {
                         HStack(spacing: 18) {
                             Text(item.name)
                                 .font(.custom("Kreon-Regular", size: 22))
-                                .foregroundColor(list.theme.textColor.opacity(0.35))
-                                .strikethrough(true, color: list.theme.textColor.opacity(0.25))
+                                .foregroundColor(list.theme.textColor(colorScheme).opacity(0.35))
+                                .strikethrough(true, color: list.theme.textColor(colorScheme).opacity(0.25))
                                 .frame(maxWidth: .infinity, alignment: .leading)
                                 .padding(.leading, 16)
 
@@ -108,13 +108,13 @@ struct ListDetailView: View {
                             } label: {
                                 Text("Restore")
                                     .font(.custom("Kreon-Regular", size: 13))
-                                    .foregroundColor(list.theme.accentColor)
+                                    .foregroundColor(list.theme.accentColor(colorScheme))
                                     .padding(.horizontal, 10)
                                     .padding(.vertical, 4)
                                     .background(
-                                        Capsule().fill(list.theme.accentColor.opacity(0.12))
+                                        Capsule().fill(list.theme.accentColor(colorScheme).opacity(0.12))
                                     )
-                                    .overlay(Capsule().stroke(list.theme.accentColor.opacity(0.4), lineWidth: 1))
+                                    .overlay(Capsule().stroke(list.theme.accentColor(colorScheme).opacity(0.4), lineWidth: 1))
                             }
                             .buttonStyle(PlainButtonStyle())
                             .padding(.trailing, 16)
@@ -155,7 +155,7 @@ struct ListDetailView: View {
             ToolbarItem(placement: .principal) {
                 Text(list.listName)
                     .font(.custom("Kreon-Bold", size: 30))
-                    .foregroundColor(list.theme.textColor)
+                    .foregroundColor(list.theme.textColor(colorScheme))
             }
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
@@ -177,7 +177,7 @@ struct ListDetailView: View {
                     }
                 } label: {
                     Image(systemName: "ellipsis.circle")
-                        .foregroundColor(list.theme.accentColor)
+                        .foregroundColor(list.theme.accentColor(colorScheme))
                 }
             }
         }
@@ -231,27 +231,27 @@ struct ItemRow: View {
     let onToggle: () -> Void
     let onEdit: () -> Void
     let onRemove: () -> Void
-    @AppStorage("isDarkMode") private var isDarkMode = false
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         HStack(spacing: 18) {
             // Number
             Text("\(index + 1).")
                 .font(.custom("Kreon-Regular", size: 21))
-                .foregroundColor(theme.textColor.opacity(0.42))
+                .foregroundColor(theme.textColor(colorScheme).opacity(0.42))
                 .frame(width: 28, alignment: .trailing)
 
             // Name + inherited indicator right next to it
             HStack(spacing: 4) {
                 Text(item.name)
                     .font(.custom("Kreon-Regular", size: 22))
-                    .strikethrough(item.isChecked, color: theme.textColor.opacity(0.45))
-                    .foregroundColor(item.isChecked ? theme.textColor.opacity(0.4) : theme.textColor)
+                    .strikethrough(item.isChecked, color: theme.textColor(colorScheme).opacity(0.45))
+                    .foregroundColor(item.isChecked ? theme.textColor(colorScheme).opacity(0.4) : theme.textColor(colorScheme))
                     .onTapGesture(count: 2) { onEdit() }
                 if item.isInherited {
                     Image(systemName: "link")
                         .font(.caption2)
-                        .foregroundColor(theme.accentColor.opacity(0.7))
+                        .foregroundColor(theme.accentColor(colorScheme).opacity(0.7))
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -259,7 +259,7 @@ struct ItemRow: View {
             // Checkbox
             Button(action: onToggle) {
                 Image(systemName: item.isChecked ? "checkmark.square.fill" : "square")
-                    .foregroundColor(item.isChecked ? theme.accentColor : theme.textColor.opacity(0.3))
+                    .foregroundColor(item.isChecked ? theme.accentColor(colorScheme) : theme.textColor(colorScheme).opacity(0.3))
                     .font(.title3)
             }
             .buttonStyle(PlainButtonStyle())
@@ -323,6 +323,7 @@ struct ThemePickerSheet: View {
     let listId: String
     @Environment(AppStore.self) private var store
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.colorScheme) private var colorScheme
 
     private var currentTheme: ListTheme {
         store.lists[listId]?.theme ?? .natural
@@ -339,13 +340,13 @@ struct ThemePickerSheet: View {
                         dismiss()
                     } label: {
                         ZStack {
-                            RoundedRectangle(cornerRadius: 10).fill(theme.backgroundColor).frame(height: 52)
+                            RoundedRectangle(cornerRadius: 10).fill(theme.backgroundColor(colorScheme)).frame(height: 52)
                             if currentTheme == theme {
-                                Image(systemName: "checkmark").font(.caption.bold()).foregroundColor(theme.textColor)
+                                Image(systemName: "checkmark").font(.caption.bold()).foregroundColor(theme.textColor(colorScheme))
                             }
                         }
                         .overlay(RoundedRectangle(cornerRadius: 10)
-                            .stroke(currentTheme == theme ? theme.accentColor : Color.gray.opacity(0.2),
+                            .stroke(currentTheme == theme ? theme.accentColor(colorScheme) : Color.gray.opacity(0.2),
                                     lineWidth: currentTheme == theme ? 2 : 1))
                     }
                     .buttonStyle(PlainButtonStyle())

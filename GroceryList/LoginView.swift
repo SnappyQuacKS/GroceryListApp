@@ -8,6 +8,14 @@ struct LoginView: View {
         ZStack {
             LinedPaperBackground()
 
+            // Zero-size hidden field forces the keyboard system to load its settings
+            // on LoginView render instead of when the user first taps a text field
+            TextField("", text: .constant(""))
+                .frame(width: 0, height: 0)
+                .opacity(0)
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
+
             VStack {
                 Spacer()
 
@@ -64,6 +72,7 @@ struct SignInView: View {
     @State private var isCreatingAccount = false
     @State private var errorMessage: String? = nil
     @State private var isLoading = false
+    @FocusState private var focusedField: Bool
 
     private var fieldsEmpty: Bool { email.isEmpty || password.isEmpty }
 
@@ -76,11 +85,13 @@ struct SignInView: View {
                     .textInputAutocapitalization(.never)
                     .textFieldStyle(.roundedBorder)
                     .font(.custom("Kreon-Regular", size: 16))
+                    .focused($focusedField)
 
                 SecureField("Password", text: $password)
                     .textContentType(isCreatingAccount ? .newPassword : .password)
                     .textFieldStyle(.roundedBorder)
                     .font(.custom("Kreon-Regular", size: 16))
+                    .focused($focusedField)
 
                 if let error = errorMessage {
                     Text(error)
@@ -100,6 +111,7 @@ struct SignInView: View {
                         if let err {
                             errorMessage = err
                         } else {
+                            focusedField = false
                             dismiss()
                         }
                     }

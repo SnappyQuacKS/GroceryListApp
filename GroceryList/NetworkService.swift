@@ -10,18 +10,18 @@ struct ServerState: Codable {
 struct NetworkService {
     let baseURL: String
 
-    private var session: URLSession {
+    private static let session: URLSession = {
         let config = URLSessionConfiguration.default
-        config.timeoutIntervalForRequest  = 10
-        config.timeoutIntervalForResource = 10
+        config.timeoutIntervalForRequest  = 8
+        config.timeoutIntervalForResource = 8
         return URLSession(configuration: config)
-    }
+    }()
 
     // ── Connectivity check ───────────────────────────────────────────────────
 
     func checkHealth() async throws {
         guard let url = URL(string: "\(baseURL)/health") else { throw URLError(.badURL) }
-        let (_, response) = try await session.data(from: url)
+        let (_, response) = try await Self.session.data(from: url)
         try validate(response)
     }
 
@@ -31,7 +31,7 @@ struct NetworkService {
         guard let url = URL(string: "\(baseURL)/state?user_id=\(userId.urlEncoded)") else {
             throw URLError(.badURL)
         }
-        let (data, response) = try await session.data(from: url)
+        let (data, response) = try await Self.session.data(from: url)
         try validate(response)
         return try decoder.decode(ServerState.self, from: data)
     }
@@ -46,7 +46,7 @@ struct NetworkService {
         req.httpMethod = "POST"
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
         req.httpBody = try encoder.encode(state)
-        let (_, response) = try await session.data(for: req)
+        let (_, response) = try await Self.session.data(for: req)
         try validate(response)
     }
 
@@ -58,7 +58,7 @@ struct NetworkService {
         req.httpMethod = "POST"
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
         req.httpBody = try encoder.encode(["username": username, "passwordHash": passwordHash])
-        let (data, response) = try await session.data(for: req)
+        let (data, response) = try await Self.session.data(for: req)
         guard (response as? HTTPURLResponse)?.statusCode == 200 else { return nil }
         return try? decoder.decode(AppUser.self, from: data)
     }
@@ -71,7 +71,7 @@ struct NetworkService {
         req.httpMethod = "POST"
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
         req.httpBody = try encoder.encode(["username": username, "passwordHash": passwordHash])
-        let (data, response) = try await session.data(for: req)
+        let (data, response) = try await Self.session.data(for: req)
         guard let code = (response as? HTTPURLResponse)?.statusCode, code == 200 else { return nil }
         return try? decoder.decode(AppUser.self, from: data)
     }

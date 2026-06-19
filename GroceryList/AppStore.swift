@@ -47,18 +47,62 @@ class AppStore {
         serverURL.isEmpty ? nil : NetworkService(baseURL: serverURL)
     }
 
-    private let storageKey      = "grocery_db_v3"
-    private let serverURLKey    = "server_url_v1"
+    private let storageKey       = "grocery_db_v3"
+    private let serverURLKey     = "server_url_v1"
+    private let authStateKey     = "auth_state_v1"
+    private let authUserKey      = "auth_user_v1"
     private let defaultServerURL = "http://192.168.0.128:8000"
 
     init() {
-        let saved = UserDefaults.standard.string(forKey: "server_url_v1") ?? ""
-        serverURL = saved.isEmpty ? defaultServerURL : saved
-        if saved.isEmpty {
-            UserDefaults.standard.set(serverURL, forKey: "server_url_v1")
+        // Zero synchronous disk I/O in init — everything deferred to background
+        let storKey      = storageKey
+        let urlKey       = serverURLKey
+        let authStateStr = authStateKey
+        let authUserStr  = authUserKey
+        let defaultURL   = defaultServerURL
+        let store        = self
+        Task.detached(priority: .userInitiated) {
+            let saved = UserDefaults.standard.string(forKey: urlKey) ?? ""
+            let url   = saved.isEmpty ? defaultURL : saved
+            if saved.isEmpty { UserDefaults.standard.set(url, forKey: urlKey) }
+
+            let db: StoredDB? = {
+                guard let data = UserDefaults.standard.data(forKey: storKey) else { return nil }
+                return try? JSONDecoder().decode(StoredDB.self, from: data)
+            }()
+
+            let authState = UserDefaults.standard.string(forKey: authStateStr) ?? ""
+            let authUser  = UserDefaults.standard.string(forKey: authUserStr)
+
+            let restoredUser = await MainActor.run { () -> Bool in
+                store.serverURL = url
+                if let db { store._applyDB(db) }
+
+                switch authState {
+                case "guest":
+                    store.isGuest = true
+                    store.isAuthenticated = true
+                    return false
+                case "user":
+                    if let username = authUser, let user = store.users[username] {
+                        store.currentUser = user
+                        store.isGuest     = false
+                        store.isAuthenticated = true
+                        return true
+                    }
+                    return false
+                default:
+                    return false
+                }
+            }
+
+            // Returning users get a fresh server sync; guests and new sessions just check health
+            if restoredUser {
+                await store.syncFromServer()
+            } else {
+                await store.checkServerHealth()
+            }
         }
-        loadData()
-        Task { await checkServerHealth() }
     }
 
     // ── Auth ──────────────────────────────────────────────────────────────────
@@ -71,6 +115,8 @@ class AppStore {
         currentUser = nil
         isGuest = true
         isAuthenticated = true
+        UserDefaults.standard.set("guest", forKey: authStateKey)
+        UserDefaults.standard.removeObject(forKey: authUserKey)
     }
 
     func signInWithApple(userIdentifier: String, email: String?, fullName: PersonNameComponents?) {
@@ -106,6 +152,8 @@ class AppStore {
         currentUser = serverUser
         isGuest = false
         isAuthenticated = true
+        UserDefaults.standard.set("user", forKey: authStateKey)
+        UserDefaults.standard.set(email,  forKey: authUserKey)
         await syncFromServer()
         return nil
     }
@@ -123,14 +171,17 @@ class AppStore {
         currentUser = newUser
         isGuest = false
         isAuthenticated = true
+        UserDefaults.standard.set("user",      forKey: authStateKey)
+        UserDefaults.standard.set(email,       forKey: authUserKey)
         saveData()
         return nil
     }
 
     func signOut() {
-        // Clear local data so next user starts fresh
         lists = [:]; items = [:]; entries = []; users = [:]
         UserDefaults.standard.removeObject(forKey: storageKey)
+        UserDefaults.standard.removeObject(forKey: authStateKey)
+        UserDefaults.standard.removeObject(forKey: authUserKey)
         currentUser = nil
         isAuthenticated = false
         isGuest = false
@@ -144,6 +195,17 @@ class AppStore {
         currentUser = u
         users[u.username] = u
         saveData()
+    }
+
+    /// Verifies the current password then updates the hash. Returns true on success.
+    func changePassword(current: String, new: String) -> Bool {
+        guard var u = currentUser else { return false }
+        guard _sha256(current) == u.passwordHash else { return false }
+        u.passwordHash = _sha256(new)
+        currentUser = u
+        users[u.username] = u
+        saveData()
+        return true
     }
 
     // ── List operations (ListManager) ─────────────────────────────────────────
@@ -444,12 +506,6 @@ class AppStore {
         if network != nil && !isGuest && currentUser != nil {
             Task { await pushToServer() }
         }
-    }
-
-    private func loadData() {
-        guard let data = UserDefaults.standard.data(forKey: storageKey),
-              let db = try? JSONDecoder().decode(StoredDB.self, from: data) else { return }
-        _applyDB(db)
     }
 
     // ── Server sync ───────────────────────────────────────────────────────────
